@@ -215,6 +215,25 @@ input:disabled{opacity:.5}
 .lsr .a{font:800 22px/1.1 'Barlow Condensed',sans-serif}
 .lsr .pop{grid-column:1/-1;font-size:13px;color:var(--mute)}
 .lsr .pts{font:800 24px 'Barlow Condensed',sans-serif;text-align:right}
+.lsr .link{grid-column:1/-1;justify-self:start;min-height:36px;padding:4px 0}
+.exp{grid-column:1/-1;padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.exp[hidden]{display:none}
+.exp h4{margin:0;font:700 13px Inter,sans-serif;color:var(--mute)}
+.ar{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:8px 10px;border-radius:9px;overflow:hidden;margin-top:6px;background:rgba(255,255,255,.03)}
+.ar .bar{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--ac) 20%,transparent);transform-origin:left;animation:grow .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleX(0)}}
+.ar>*:not(.bar){position:relative}
+.ar.mine{box-shadow:inset 0 0 0 1px var(--ac)}
+.ar .an{font-weight:700;overflow-wrap:anywhere}
+.ar .ct{display:flex;gap:8px;align-items:center;color:var(--mute);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ar .ct .tier{font-size:12px;padding:3px 6px}
+.ar .who{grid-column:1/-1;font-size:12px;color:var(--mute)}
+.allans{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.allans span{font-size:13px;padding:4px 8px;border-radius:7px;border:1px solid var(--line);color:var(--mute)}
+.allans .said{color:var(--ink);border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
+.allans b{margin-left:5px}.allans .said b{color:var(--ac)}
+.allans .mine{background:var(--ac);border-color:var(--ac);color:#111}
+.allans .mine b{color:#111}
 /* party */
 .arena{position:absolute;inset:0;z-index:5}
 body.party .stage{min-height:260px}
@@ -602,7 +621,7 @@ function home(live){stop();if(!live){leaveParty();S={screen:'home'};page('home')
  <div class="shows">
   <article class="show ${live?'':'in'}" style="--sc:${CATS.home.ac}"><div class="art">${art('football')}<span class="badge">Daily</span></div><div class="bd"><h3>Daily <span>Trivia</span></h3><p>Nine questions, one per category. The clock counts up and fast right answers earn a speed bonus.</p>
    <div class="st">${t?`Played · <b>${nf(t.score)} pts</b> · ${ft(t.time)}${rk(tr)}`:`Not played yet${st&&st.ts?` · streak <b>${st.ts}</b> on the line`:''}`}</div>
-   <div class="acts" style="margin-top:6px">${t?`<button class="btn" id="tv">See result</button>`:`<button class="btn" id="tv">Play Day ${TODAY}</button>`}<button class="btn ghost sm" id="tvp">Practice</button></div></div></article>
+   <div class="acts" style="margin-top:6px">${t?`<button class="btn" id="tv">See result</button>`:`<button class="btn" id="tv">Daily ${TODAY}</button>`}<button class="btn ghost sm" id="tvp">Practice</button></div></div></article>
   <article class="show ${live?'':'in'}" style="--sc:${CATS.longshot.ac};animation-delay:.08s"><div class="art">${art('longshot')}<span class="badge">Daily</span></div><div class="bd"><h3>Long <span>Shot</span></h3><p>Seven open prompts. Any right answer counts, and the fewer people who say it, the bigger the payout.</p>
    <div class="st">${l?`Played · <b>${nf(l.score)} pts</b>${rk(lr)}`:`Not played yet${st&&st.ls?` · streak <b>${st.ls}</b> on the line`:''}`}</div>
    <div class="acts" style="margin-top:6px"><button class="btn" id="ls">${l?'See result':'Play Long Shot'}</button></div></div></article>
@@ -688,12 +707,26 @@ function lsEnd(){stop();if(!LSLOC.days[S.day]){LSLOC.days[S.day]={score:S.score,
 function lsResults(n){const r=LSLOC.days[n];if(!r)return home();S={screen:'lsres',day:n};mode2game();cur='';theme('longshot');tags('Long Shot','Day '+n);meta();$('prog').innerHTML='';bumper('Long Shot',nf(r.score)+' pts');
  const ids=lsFor(n),share=`Noggin Long Shot Day ${n} · ${nf(r.score)} pts\n`+r.pts.map(p=>p>=100?'🟪':p>=85?'🟧':p>=60?'🟩':p>=30?'🟦':p?'⬜':'⬛').join('');
  $('card').innerHTML=`<div class="score in"><div class="big" id="cnt">0</div><span>of ${ids.length*100}</span></div>
- ${ids.map((id,k)=>{const L=list(id),i=r.picks[k],t=TIERS.find(x=>x.p===r.pts[k]);return `<div class="lsr in" style="animation-delay:${(.1+k*.07).toFixed(2)}s"><div><div class="p">${esc(L.q)}</div><div class="a">${i>=0?esc(L.n[i][0]):'No answer'}</div></div><div class="pts">${i>=0&&t?tierEl(t):'0'}</div><div class="pop">Most common: ${esc(popular(n,k).join(', '))}</div></div>`}).join('')}
+ ${ids.map((id,k)=>{const L=list(id),i=r.picks[k],t=TIERS.find(x=>x.p===r.pts[k]);return `<div class="lsr in" style="animation-delay:${(.1+k*.07).toFixed(2)}s"><div><div class="p">${esc(L.q)}</div><div class="a">${i>=0?esc(L.n[i][0]):'No answer'}</div></div><div class="pts">${i>=0&&t?tierEl(t):'0'}</div><div class="pop">Most common: ${esc(popular(n,k).join(', '))}</div><button class="link" data-ex="${k}" aria-expanded="false">See everyone’s answers</button><div class="exp" id="ex${k}" hidden></div></div>`}).join('')}
  ${n===TODAY?`<div class="post in" id="lrkb"></div>`:''}
  <div class="acts"><button class="btn ghost" id="lb">Leaderboard</button><button class="btn ghost" id="cp">Copy result</button><button class="btn ghost" id="hm">Home</button></div><div id="cpo"></div>`;
  countUp($('cnt'),r.score);$('hm').onclick=()=>home();$('lb').onclick=()=>{VIEW.board='ls';board()};$('cp').onclick=()=>copy(share,$('cp'),$('cpo'));
+ document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{const k=+b.dataset.ex,box=$('ex'+k),open=box.hidden;box.hidden=!open;b.setAttribute('aria-expanded',open);b.textContent=open?'Hide answers':'See everyone’s answers';if(open)lsExp(n,k)});
  if(n===TODAY)autoPost('ls')}
-function lsMine(){const b=$('lrkb');if(!b||!LSLOC.days[TODAY]?.posted)return;const rs=rows('ls',TODAY,'all'),i=rs.findIndex(r=>r.id===UID);b.innerHTML=`<p style="margin:0"><b>${i>=0?`You’re #${i+1} of ${rs.length} today.`:'Posted to today’s leaderboard.'}</b></p>`}
+function crowdAll(day,k){const c={},who={},seen=new Set();let n=0,players=0;
+ for(const d of LSB){const e=d.days&&d.days[day];if(!e||!Array.isArray(e.picks))continue;seen.add(d.id);players++;const p=e.picks[k];if(Number.isInteger(p)&&p>=0){c[p]=(c[p]||0)+1;(who[p]=who[p]||[]).push(d.id);n++}}
+ const me=LSLOC.days[day];if(me&&!(UID&&seen.has(UID))){players++;const p=me.picks&&me.picks[k];if(Number.isInteger(p)&&p>=0){c[p]=(c[p]||0)+1;(who[p]=who[p]||[]).push(UID||'local');n++}}
+ return{c,who,n,players}}
+function lsExp(day,k){const box=$('ex'+k);if(!box||box.hidden)return;const L=list(lsFor(day)[k]),{c,who,n,players}=crowdAll(day,k),mine=(LSLOC.days[day]||{}).picks?.[k],myId=UID||'local';
+ const nm=id=>id===myId?'You':nameOf(id);
+ const said=Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a]||L.n[a][0].localeCompare(L.n[b][0]));
+ const tierFor=i=>TIERS.find(t=>((c[i]||0)+L.w[i])/(n+L.tw)>=t.min);
+ box.innerHTML=`<h4>What everyone said · ${players} ${players===1?'player':'players'}, ${n} ${n===1?'answer':'answers'}</h4>
+ ${said.length?said.map(i=>{const pct=n?100*c[i]/n:0,ids=who[i]||[],list2=ids.slice(0,6).map(nm);return `<div class="ar ${i===mine?'mine':''}"><span class="bar" style="width:${pct.toFixed(1)}%"></span><span class="an">${esc(L.n[i][0])}</span><span class="ct">${c[i]} · ${pct.toFixed(pct<10?1:0)}% ${tierEl(tierFor(i))}</span><span class="who">${esc(list2.join(', '))}${ids.length>6?` +${ids.length-6} more`:''}</span></div>`}).join(''):'<p class="lbl" style="margin:6px 0 0">Nobody has answered this one yet.</p>'}
+ <h4 style="margin-top:14px">Every right answer · ${L.n.length}</h4>
+ <div class="allans">${L.n.map((a,i)=>({a:a[0],i})).sort((x,y)=>x.a.localeCompare(y.a)).map(({a,i})=>`<span class="${i===mine?'mine':c[i]?'said':''}">${esc(a)}${c[i]?`<b>${c[i]}</b>`:''}</span>`).join('')}</div>
+ <p class="note" style="margin-top:10px">Highlighted: your answer. Numbers show how many players said it. Unmarked answers nobody has said yet.</p>`}
+function lsMine(){if(S.screen==='lsres')document.querySelectorAll('.exp:not([hidden])').forEach(x=>lsExp(S.day,+x.id.slice(2)));const b=$('lrkb');if(!b||!LSLOC.days[TODAY]?.posted)return;const rs=rows('ls',TODAY,'all'),i=rs.findIndex(r=>r.id===UID);b.innerHTML=`<p style="margin:0"><b>${i>=0?`You’re #${i+1} of ${rs.length} today.`:'Posted to today’s leaderboard.'}</b></p>`}
 /* ---------- leaderboard ---------- */
 function board(live){stop();if(!live){S={screen:'board'};page('home');meta()}
  const g=VIEW.board,rs=rows(g,TODAY,VIEW.scope),[a,b,c]=rs,anim=live?'':'rise',me=r=>r.id===UID?'<span class="you">You</span>':'';
