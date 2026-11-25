@@ -200,6 +200,17 @@ input:disabled{opacity:.5}
 .picbtns{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .mbox form{margin-top:6px}
 .mbox .sect{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
+ [data-pid]{cursor:pointer}
+.lr[data-pid]:hover,.prow[data-pid]:hover{background:rgba(255,255,255,.05)}
+.spot[data-pid]:hover,.champ[data-pid]:hover{border-color:var(--ac)}
+.qrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.qrow:last-child{border-bottom:0}
+.qrow small{display:block;color:var(--mute);font-size:12px;font-weight:600}
+.qrow .qa{font-weight:700}
+.qrow .qq{font-size:13px;color:var(--mute)}
+.qrow .ok{color:var(--ac);font:800 18px 'Barlow Condensed',sans-serif;white-space:nowrap;text-align:right}
+.qrow .no{color:#ff9a9a;font:800 18px 'Barlow Condensed',sans-serif;white-space:nowrap;text-align:right}
+.lockd{margin-top:12px;padding:14px;border-radius:12px;border:1px dashed var(--line);color:var(--mute)}
 .filein{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .mini2{display:flex;gap:10px;flex-wrap:wrap}
 .mini2 input{min-width:160px}
@@ -588,6 +599,28 @@ function openProfile(){const m=$('modal'),me=ME(),key=window.NET&&window.NET.key
  if($('pci'))$('pci').onclick=()=>copy(`Play Noggin with me: Daily Trivia, Long Shot and Hot Seat. Open the Noggin link I sent and add my friend code ${me.code}.`,$('pci'),$('pcio'));
  if($('pfr'))$('pfr').onclick=()=>{PMSG='';closeModal();friendsView()}}
 addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').hidden&&$('mx'))$('mx').click()});
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-pid]');if(t&&$('modal').hidden)openPlayer(t.dataset.pid,t.dataset.gm||'trivia')});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.pid){e.preventDefault();openPlayer(e.target.dataset.pid,e.target.dataset.gm||'trivia')}});
+function openPlayer(id,g){const m=$('modal'),src=g==='trivia'?LB:LSB,d=src.find(x=>x.id===id),e=d&&d.days&&d.days[TODAY],name=nameOf(id,d&&d.name),st=statsOf(id),isMe=id===UID,fr=friends();
+ const played=g==='trivia'?!!LOCAL.days[TODAY]:!!LSLOC.days[TODAY],gname=g==='trivia'?'Daily Trivia':'Long Shot';
+ let body='';
+ if(!e)body=`<p class="lockd">${esc(name)} hasn’t played today’s ${gname} yet.</p>`;
+ else if(!isMe&&!played)body=`<div class="lockd">Finish today’s ${gname} to see ${esc(name)}’s answers.<div class="acts" style="margin-top:10px"><button class="btn sm" id="pgo">Play ${gname}</button></div></div>`;
+ else if(g==='trivia'){const qs=setFor(TODAY),res=Array.isArray(e.res)?e.res:null;
+  body=res?qs.map((q,i)=>{const r=res[i]||{};return `<div class="qrow"><div><small>${CATS[q[0]].n}</small><div class="qq">${esc(q[1])}</div><div class="qa">${esc(shown(q[2]))}</div></div>${r.t?`<span class="ok">+${(+r.p||0)}<br><small>${['','1st try','2nd try','3rd try'][r.t]||''} · ${ft(r.s)}</small></span>`:`<span class="no">Missed<br><small>${ft(r.s)}</small></span>`}</div>`}).join(''):`<p class="lockd">Answer details weren’t saved for this game. They’ll show for games played from now on.</p>`}
+ else{const ids=lsFor(TODAY),pk=Array.isArray(e.picks)?e.picks:[],pts=Array.isArray(e.pts)?e.pts:[];
+  body=ids.map((pid,k)=>{const L=list(pid),i=pk[k],ok=Number.isInteger(i)&&i>=0&&L.n[i];const t=ok?(TIERS.find(x=>x.p===pts[k])||oddsOf(TODAY,k,i).tier):null;return `<div class="qrow"><div><small>${esc(L.q)}</small><div class="qa">${ok?esc(L.n[i][0]):'No answer'}</div></div>${t?tierEl(t):'<span class="no">0</span>'}</div>`}).join('')}
+ m.hidden=false;
+ m.innerHTML=`<div class="mbox"><button class="mx" id="mx" aria-label="Close">×</button>
+ <div class="picrow" style="margin-top:0">${avatar(name,id)}<div><h2 id="mtitle" style="margin:0">${esc(name)}${isMe?' <span class="you">You</span>':''}</h2><span class="lbl">${e?`${gname} · <b style="color:var(--ink)">${nf(e.score)}</b> pts${g==='trivia'?' · '+ft(e.time):''}`:gname}</span></div></div>
+ <div class="kv"><div><b>${st.ts}</b>Trivia streak</div><div><b>${st.ls}</b>Long Shot streak</div><div><b>${nf(st.right)}</b>Total right</div></div>
+ <div class="tabs" style="margin:16px 0 4px"><button class="tab ${g==='trivia'?'on':''}" data-pg="trivia">Daily Trivia</button><button class="tab ${g==='ls'?'on':''}" data-pg="ls">Long Shot</button></div>
+ <div>${body}</div>
+ ${UID&&!isMe&&ME()&&!fr.includes(id)?`<div class="acts"><button class="btn sm" id="padd">Add friend</button></div>`:''}</div>`;
+ const close=()=>closeModal();$('mx').onclick=close;m.onclick=ev=>{if(ev.target===m)close()};
+ m.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>openPlayer(id,b.dataset.pg));
+ if($('pgo'))$('pgo').onclick=()=>{closeModal();g==='trivia'?play('daily',TODAY):lsPlay(TODAY)};
+ if($('padd'))$('padd').onclick=async()=>{try{await DBX.collection('pf').doc(UID).update({friends:[...new Set([...fr,id])]});$('padd').textContent='Added';$('padd').disabled=true}catch(err){$('padd').textContent=errText(err)}}}
 let RQ=0;function refresh(){cancelAnimationFrame(RQ);RQ=requestAnimationFrame(()=>{const s=S.screen;if(document.body.classList.contains('pg')&&$('modal').hidden)meta();if(s==='home')home(true);else if(s==='board')board(true);else if(s==='friends')friendsView(true);else if(s==='results')myRank();else if(s==='lsres')lsMine()})}
 async function writeDay(col,n,entry){if(!DBX||!UID)throw{code:'nodb'};const ref=DBX.collection(col).doc(UID),snap=await ref.get();
  if(snap.exists){const d=snap.data();if(d.days&&d.days[n])return false;await ref.update({name:NAME,days:{[n]:entry}})}else await ref.set({name:NAME,days:{[n]:entry}});return true}
@@ -614,7 +647,7 @@ function copy(text,btn,out){const fb=()=>{out.innerHTML=`<textarea rows="3" read
 function home(live){stop();if(!live){leaveParty();S={screen:'home'};page('home')}meta();
  const t=LOCAL.days[TODAY],l=LSLOC.days[TODAY],tr=rows('trivia',TODAY,'all'),lr=rows('ls',TODAY,'all'),fr=friends(),st=UID?statsOf(UID):null;
  const rk=(rs)=>{const i=rs.findIndex(r=>r.id===UID);return i>=0?` · #${i+1} of ${rs.length}`:''};
- const prev=(rs,label,game)=>`<div class="panel"><div class="hd"><h2>${label}</h2><button class="link" data-go="${game}">Full board</button></div>${BST!=='ok'?`<p class="lbl">${BST==='loading'?'Loading…':'Can’t reach the leaderboard right now.'}</p>`:rs.length?rs.slice(0,3).map((r,i)=>`<div class="prow"><span class="rk">${i+1}</span><span>${esc(r.name)}${r.id===UID?'<span class="you">You</span>':''}<small>${game==='trivia'?ft(r.time):'7 picks'}</small></span><b>${nf(r.score)}</b></div>`).join(''):`<p class="lbl">No scores yet today. Be the first.</p>`}</div>`;
+ const prev=(rs,label,game)=>`<div class="panel"><div class="hd"><h2>${label}</h2><button class="link" data-go="${game}">Full board</button></div>${BST!=='ok'?`<p class="lbl">${BST==='loading'?'Loading…':'Can’t reach the leaderboard right now.'}</p>`:rs.length?rs.slice(0,3).map((r,i)=>`<div class="prow" data-pid="${esc(r.id)}" data-gm="${game}" role="button" tabindex="0"><span class="rk">${i+1}</span><span>${esc(r.name)}${r.id===UID?'<span class="you">You</span>':''}<small>${game==='trivia'?ft(r.time):'7 picks'}</small></span><b>${nf(r.score)}</b></div>`).join(''):`<p class="lbl">No scores yet today. Be the first.</p>`}</div>`;
  const ftoday=fr.map(id=>({id,n:nameOf(id),s:statsOf(id)})).slice(0,4);
  $('card').innerHTML=`<div class="hero ${live?'':'in'}"><div><p class="kick">${esc(dateOf(TODAY))} · Day ${TODAY}</p><h1>Tonight on Noggin</h1></div>
 </div>
@@ -683,7 +716,7 @@ async function autoPost(col){const box=col==='lb'?$('rkb'):$('lrkb');if(!box)ret
  if(!NAME){box.innerHTML=`<p><b>Add your score to today’s leaderboard</b></p><form id="pf" class="mini2"><input id="nm" maxlength="16" placeholder="Pick a player name" aria-label="Player name"><button class="btn">Post</button></form><p class="err" id="pe" hidden></p>`;
   $('pf').onsubmit=e=>{e.preventDefault();const v=$('nm').value.trim().replace(/\s+/g,' ').slice(0,16);if(!v)return;NAME=v;store('noggin-name2',v);autoPost(col)};return}
  box.innerHTML=`<p class="lbl" style="margin:0">Posting to today’s leaderboard…</p>`;
- try{await ensureProfile(NAME);const e=col==='lb'?{score:loc.score,time:loc.time,at:Date.now(),right:loc.right||0}:{score:loc.score,picks:loc.picks,at:Date.now()};await writeDay(col,TODAY,e);loc.posted=true;save();col==='lb'?myRank():lsMine()}
+ try{await ensureProfile(NAME);const e=col==='lb'?{score:loc.score,time:loc.time,at:Date.now(),right:loc.right||0,res:(loc.res||[]).map(r=>({t:r.t|0,p:r.pts|0,s:+r.s||0}))}:{score:loc.score,picks:loc.picks,pts:loc.pts||[],at:Date.now()};await writeDay(col,TODAY,e);loc.posted=true;save();col==='lb'?myRank():lsMine()}
  catch(e){box.innerHTML=`<p class="err" style="margin:0">${esc(errText(e))}</p><button class="btn sm" id="rp" style="margin-top:10px">Try again</button>`;$('rp').onclick=()=>autoPost(col)}}
 function myRank(){const b=$('rkb');if(!b||!LOCAL.days[TODAY]?.posted)return;const rs=rows('trivia',TODAY,'all'),i=rs.findIndex(r=>r.id===UID);
  b.innerHTML=`<p style="margin:0"><b>${i>=0?`You’re #${i+1} of ${rs.length} today.`:'Posted to today’s leaderboard.'}</b></p>`}
@@ -731,14 +764,14 @@ function lsMine(){if(S.screen==='lsres')document.querySelectorAll('.exp:not([hid
 function board(live){stop();if(!live){S={screen:'board'};page('home');meta()}
  const g=VIEW.board,rs=rows(g,TODAY,VIEW.scope),[a,b,c]=rs,anim=live?'':'rise',me=r=>r.id===UID?'<span class="you">You</span>':'';
  const sub=r=>g==='trivia'?`<b>${nf(r.score)}</b> pts · ${ft(r.time)}`:`<b>${nf(r.score)}</b> pts`;
- const spot=(r,n,d)=>`<div class="spot ${anim}" style="animation-delay:${d}s"><span class="medal">${n}</span><span class="lbl">${n===2?'Second':'Third'}</span>${r?`<span class="nm">${esc(r.name)}${me(r)}</span><span class="st">${sub(r)}</span>`:`<span class="nm" style="color:var(--mute)">Open</span><span class="st">Up for grabs</span>`}</div>`;
+ const spot=(r,n,d)=>`<div class="spot ${anim}" style="animation-delay:${d}s" ${r?`data-pid="${esc(r.id)}" data-gm="${g}" role="button" tabindex="0"`:''}><span class="medal">${n}</span><span class="lbl">${n===2?'Second':'Third'}</span>${r?`<span class="nm">${esc(r.name)}${me(r)}</span><span class="st">${sub(r)}</span>`:`<span class="nm" style="color:var(--mute)">Open</span><span class="st">Up for grabs</span>`}</div>`;
  const status={loading:'Loading today’s scores…',slow:'Can’t reach the leaderboard yet.',off:'Can’t reach the leaderboard right now. Check your connection and reload.'}[BST];
  const lst=rs.map((r,i)=>({...r,rk:i+1}));if(VIEW.sort==='latest')lst.sort((x,y)=>y.at-x.at);
- $('card').innerHTML=`<div class="${live?'':'in'}"><p class="kick">${esc(dateOf(TODAY))}</p><h1>Today’s leaderboard</h1></div>
+ $('card').innerHTML=`<div class="${live?'':'in'}"><p class="kick">${esc(dateOf(TODAY))}</p><h1>Today’s leaderboard</h1><p class="sub" style="margin-bottom:0">Tap a player to see their answers.</p></div>
  <div class="bar"><div class="tabs">${[['trivia','Daily Trivia'],['ls','Long Shot']].map(([k,n])=>`<button class="tab ${g===k?'on':''}" data-g="${k}">${n}</button>`).join('')}</div><div class="tabs">${[['all','Everyone'],['friends','Friends']].map(([k,n])=>`<button class="tab ${VIEW.scope===k?'on':''}" data-sc="${k}">${n}</button>`).join('')}</div></div>
- ${status?`<p class="sub">${status}</p>`:`<div class="boardgrid"><div class="podium">${a?`<div class="champ ${anim}"><span class="medal">1</span><span class="lbl">Today’s champion</span><span class="nm">${esc(a.name)}${me(a)}</span><span class="st">${sub(a)}</span></div>`:`<div class="champ ${anim}"><span class="lbl">Today’s champion</span><span class="nm">No one yet</span><span class="st">Play and post a score to take the top spot.</span></div>`}${spot(b,2,.12)}${spot(c,3,.22)}</div>
+ ${status?`<p class="sub">${status}</p>`:`<div class="boardgrid"><div class="podium">${a?`<div class="champ ${anim}" data-pid="${esc(a.id)}" data-gm="${g}" role="button" tabindex="0"><span class="medal">1</span><span class="lbl">Today’s champion</span><span class="nm">${esc(a.name)}${me(a)}</span><span class="st">${sub(a)}</span></div>`:`<div class="champ ${anim}"><span class="lbl">Today’s champion</span><span class="nm">No one yet</span><span class="st">Play and post a score to take the top spot.</span></div>`}${spot(b,2,.12)}${spot(c,3,.22)}</div>
  <div><div class="lh"><h2>All games today</h2><span class="lbl">${rs.length}</span><div class="tabs" style="margin-left:auto">${[['rank','Rank'],['latest','Latest']].map(([k,n])=>`<button class="tab ${VIEW.sort===k?'on':''}" data-s="${k}">${n}</button>`).join('')}</div></div>
- <div class="scroll">${lst.length?lst.map(r=>`<div class="lr ${r.id===UID?'me':''}"><span class="rk">${r.rk}</span><span class="n">${esc(r.name)}${me(r)}<small>${new Date(r.at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</small></span><span class="s">${nf(r.score)}</span><span class="t">${g==='trivia'?ft(r.time):''}</span></div>`).join(''):`<div class="empty">${VIEW.scope==='friends'?'None of your friends have played yet today.':'No games posted yet today.'}</div>`}</div></div></div>`}
+ <div class="scroll">${lst.length?lst.map(r=>`<div class="lr ${r.id===UID?'me':''}" data-pid="${esc(r.id)}" data-gm="${g}" role="button" tabindex="0"><span class="rk">${r.rk}</span><span class="n">${esc(r.name)}${me(r)}<small>${new Date(r.at).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</small></span><span class="s">${nf(r.score)}</span><span class="t">${g==='trivia'?ft(r.time):''}</span></div>`).join(''):`<div class="empty">${VIEW.scope==='friends'?'None of your friends have played yet today.':'No games posted yet today.'}</div>`}</div></div></div>`}
  <div class="acts" style="max-width:520px"><button class="btn ghost" id="hm">Home</button><button class="btn ghost" id="fv">Friends</button></div>`;
  $('hm').onclick=()=>home();$('fv').onclick=()=>friendsView();
  document.querySelectorAll('[data-g]').forEach(x=>x.onclick=()=>{VIEW.board=x.dataset.g;board()});
