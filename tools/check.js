@@ -4,9 +4,11 @@ require('../data.js');
 const D = window.NOGGIN_DATA;
 const SCENES = new Set(['football','baseball','basketball','hockey','geography','movies','tv','food','history','science','music']);
 const GROUPS = new Set(['s','g','p','x','h']);
+const OBJS = new Set(['football','baseball','basketball','puck','golf','can','apple','globe','coin','vinyl','reel']);
 let bad = 0;
 const fail = (m) => { bad++; console.log('PROBLEM:', m); };
 const seenQ = new Map();
+(D.ARCHIVE || []).flat().forEach((q) => seenQ.set(q[1].toLowerCase(), 'last season'));
 D.TRIVIA.forEach((day, i) => {
   if (day.length !== 9) fail(`Trivia day ${i + 1} has ${day.length} questions (needs 9)`);
   day.forEach((q, j) => {
@@ -21,6 +23,7 @@ const seenP = new Map();
 D.LONGSHOT.forEach((p, i) => {
   if (!SCENES.has(p[0])) fail(`Long Shot ${i}: unknown scene ${p[0]}`);
   if (!GROUPS.has(p[1])) fail(`Long Shot ${i}: unknown group ${p[1]}`);
+  if (p[4] && !OBJS.has(p[4])) fail(`Long Shot ${i}: unknown launch object ${p[4]}`);
   const entries = p[3].split(';');
   if (entries.length < 12) fail(`Long Shot ${i} (${p[2]}) has only ${entries.length} answers (needs 12+)`);
   const names = entries.map((e) => e.replace(/^[*+-]/, '').split('|')[0].trim().toLowerCase());
@@ -35,7 +38,7 @@ D.LSDAYS.forEach((d, i) => {
   d.forEach((x) => { if (!D.LONGSHOT[x]) fail(`Long Shot day ${i + 1} points to missing prompt ${x}`); });
   if (new Set(d).size !== d.length) fail(`Long Shot day ${i + 1} uses a prompt twice`);
 });
-const start = new Date(2026, 10, 19);
+const start = new Date(2026, 10, 25);
 const last = (n) => { const d = new Date(start); d.setDate(d.getDate() + n - 1); return d.toDateString(); };
 console.log(`Trivia days: ${D.TRIVIA.length} (through ${last(D.TRIVIA.length)})`);
 console.log(`Long Shot days: ${D.LSDAYS.length} (through ${last(D.LSDAYS.length)}), prompts in bank: ${D.LONGSHOT.length}`);

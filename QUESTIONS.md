@@ -1,6 +1,6 @@
 # Writing Noggin questions
 
-All questions live in `data.js`. Day 1 is Thursday, Nov 19, 2026. Day N is Nov 18, 2026 plus N days, using each player's local date.
+All questions live in `data.js`. Season 2 started Wednesday, Nov 25, 2026: that is Day 1, and Day N is Nov 24, 2026 plus N days, using each player's local date. Scores are stored under day N + 100 so last season's scores stay off the boards.
 If a day has no entry yet, the game loops back to older days, so always keep at least a week of future days filled in.
 
 After any change, run `node tools/check.js`. It must print `All good`.
@@ -27,13 +27,15 @@ Rules:
 - Avoid stats or records that may have changed after mid-2026 unless the question is about a fixed past event (for example a specific season or year).
 - Medium difficulty, like the Daily Dozen: something a sports fan or a well-read adult can get, with a mix of easy and hard. A couple of New England or Boston questions per week are welcome.
 - List common spellings and short forms as accepted answers (team nickname alone, last name alone when it is unambiguous). Small typos are already accepted automatically.
-- Never repeat a question that already appears in `data.js`.
+- Never repeat a question that already appears in `data.js`, including `ARCHIVE` (last season).
 - Use curly quotes and apostrophes (“ ” ’) inside question text so the JavaScript strings stay valid.
 
 ## Long Shot (`LONGSHOT` and `LSDAYS`)
 
 `LONGSHOT` is a bank of open prompts. Format:
-`["scene", "group", "Name a ...", "entry;entry;entry"]`
+`["scene", "group", "Name a ...", "entry;entry;entry", "object"]`
+
+The optional fifth field picks what gets launched down the field: football, baseball, basketball, puck, golf, can, apple, globe, coin, vinyl or reel. Without it the scene decides.
 
 - Groups: `s` sports, `g` geography, `p` pop culture and food, `x` science and body, `h` history and local.
 - Each entry is `Shown name|alias|alias`.
