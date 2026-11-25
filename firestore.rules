@@ -12,6 +12,7 @@ service cloud.firestore {
       return signedIn() && existsAfter(ownerDoc(pid)) && request.auth.uid in getAfter(ownerDoc(pid)).data.devices;
     }
     function goodName(n) { return n is string && n.matches('^[A-Za-z0-9][A-Za-z0-9 _.-]{1,15}$'); }
+    function goodPic(d) { return !('pic' in d) || (d.pic is string && d.pic.size() < 60000 && (d.pic == '' || d.pic.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$'))); }
     function nameDoc(n) { return /databases/$(database)/documents/names/$(n.lower()); }
 
     // Which devices belong to a player.
@@ -54,7 +55,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if ownsAfter(pid) && goodName(request.resource.data.name)
         && getAfter(nameDoc(request.resource.data.name)).data.pid == pid;
-      allow update: if owns(pid) && goodName(request.resource.data.name)
+      allow update: if owns(pid) && goodName(request.resource.data.name) && goodPic(request.resource.data)
         && request.resource.data.code == resource.data.code
         && request.resource.data.friends is list && request.resource.data.friends.size() <= 300
         && (request.resource.data.name == resource.data.name

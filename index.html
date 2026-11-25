@@ -183,6 +183,24 @@ input:disabled{opacity:.5}
 .today{margin-top:8px;font-size:13px;color:var(--mute)}
 .today b{color:var(--ink)}
 .code{font:800 34px/1 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--ac)}
+.av{overflow:hidden}.av img{width:100%;height:100%;object-fit:cover;display:block}
+.ubtn{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;min-height:40px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.06);cursor:pointer;font:700 17px/1 'Barlow Condensed',sans-serif;color:var(--ink)}
+.ubtn.solo{padding:4px}
+.ubtn .av{width:32px;height:32px;border-radius:9px;font-size:15px}
+.ubtn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(6,5,14,.55);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:fade .25s both}
+.modal[hidden]{display:none}
+@keyframes fade{from{opacity:0}}
+.mbox{position:relative;width:min(430px,100%);max-height:calc(100dvh - 32px);overflow:auto;border-radius:22px;background:linear-gradient(180deg,#1f1a38,#15122b);border:1px solid var(--line);padding:24px 22px 22px;box-shadow:0 30px 80px rgba(0,0,0,.55);animation:pop .4s cubic-bezier(.2,.9,.3,1.15) both}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.97)}}
+.mbox h2{font-size:34px;margin:0 0 4px}
+.mx{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);font-size:22px;line-height:1;cursor:pointer}
+.picrow{display:flex;align-items:center;gap:16px;margin:16px 0}
+.picrow .av{width:84px;height:84px;border-radius:24px;font-size:34px;flex:none}
+.picbtns{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.mbox form{margin-top:6px}
+.mbox .sect{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}
+.filein{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .mini2{display:flex;gap:10px;flex-wrap:wrap}
 .mini2 input{min-width:160px}
 /* long shot */
@@ -286,6 +304,7 @@ body.game .card{max-height:calc(100vh - 120px)}
 <body class="pg">
 <header class="top"><button class="logo" id="logo" aria-label="Noggin home"><i></i>Noggin</button><div class="meta" id="meta"></div></header>
 <div class="prog" id="prog"></div>
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mtitle"></div>
 <main class="wrap">
   <section class="stage" id="stage">
     <div class="scene" id="sA" aria-hidden="true"></div><div class="scene" id="sB" aria-hidden="true"></div>
@@ -454,7 +473,10 @@ const ft=s=>{s=Math.max(0,+s||0);const m=Math.floor(s/60);return m?`${m}:${(s%60
 const nf=n=>Number(n||0).toLocaleString();
 const hue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h};
 const ini=s=>String(s||'?').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'?';
-const avatar=(name,id)=>`<span class="av" style="--h:${hue(id||name)}">${esc(ini(name))}</span>`;
+const PICRE=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+let LPIC=(()=>{try{return JSON.parse(localStorage.getItem('noggin-pic'))||''}catch(e){return ''}})();
+const picOf=id=>{const p=id&&PF.find(x=>x.id===id),v=p&&p.pic;if(typeof v==='string'&&v.length<90000&&PICRE.test(v))return v;if(id&&(id===UID||id==='local')&&!window.NET&&PICRE.test(LPIC))return LPIC;return ''};
+const avatar=(name,id)=>{const src=picOf(id);return `<span class="av" style="--h:${hue(id||name)}">${src?`<img src="${src}" alt="">`:esc(ini(name))}</span>`};
 const LAUNCH=new Date(2026,10,19);
 const dayOf=d=>Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-LAUNCH)/864e5)+1;
 const TODAY=dayOf(new Date());
@@ -491,7 +513,7 @@ function crowdFor(day,k){const c={};let n=0;for(const d of LSB){if(d.id===UID)co
 function oddsOf(day,k,i){const L=list(lsFor(day)[k]),{c,n}=crowdFor(day,k);const share=((c[i]||0)+L.w[i])/(n+L.tw);return{share,tier:TIERS.find(t=>share>=t.min),real:n>=5,pct:n?100*(c[i]||0)/n:0}}
 function popular(day,k,cnt=3){const L=list(lsFor(day)[k]),{c}=crowdFor(day,k);return L.n.map((a,i)=>({a:a[0],v:(c[i]||0)*3+L.w[i]})).sort((x,y)=>y.v-x.v).slice(0,cnt).map(x=>x.a)}
 /* ---------- shared data ---------- */
-let DBX=null,UID=null,LB=[],LSB=[],PF=[],BST='loading';
+let NETDONE=false,DBX=null,UID=null,LB=[],LSB=[],PF=[],BST='loading';
 const PFm=()=>Object.fromEntries(PF.map(p=>[p.id,p]));
 const ME=()=>PF.find(p=>p.id===UID);
 const nameOf=(id,fb)=>String((PF.find(p=>p.id===id)||{}).name||fb||'Player').slice(0,20);
@@ -504,13 +526,50 @@ function statsOf(id){const t=(LB.find(d=>d.id===id)||{}).days||{},l=(LSB.find(d=
  return{ts:streakOf(t),ls:streakOf(l),games:tv.length+lv.length,right:tv.reduce((a,e)=>a+(+e.right||0),0)+lv.reduce((a,e)=>a+(Array.isArray(e.picks)?e.picks.filter(p=>p>=0).length:0),0),best:tv.length?Math.max(...tv.map(e=>+e.score||0)):0,lbest:lv.length?Math.max(...lv.map(e=>+e.score||0)):0,tt:t[TODAY]?.score,lt:l[TODAY]?.score}}
 (async()=>{const tm=setTimeout(()=>{if(BST==='loading'){BST='slow';refresh()}},10000);
  try{const[db,user]=await Promise.all([window.claude?.use?.('db'),window.claude?.use?.('user')]);
-  if(!db){clearTimeout(tm);BST='off';refresh();return}
-  DBX=db;try{UID=await user?.id?.()}catch(e){}
+  NETDONE=true;if(!db){clearTimeout(tm);BST='off';refresh();checkOnboard();return}
+  DBX=db;try{UID=await user?.id?.()}catch(e){}checkOnboard();
   const sub=(c,set)=>db.collection(c).onSnapshot(s=>{if(!s.metadata.fromCache)clearTimeout(tm);BST='ok';set(s.docs.map(d=>({id:d.id,...d.data()})));refresh()},()=>{clearTimeout(tm);if(BST!=='ok')BST='off';refresh()});
   sub('lb',v=>LB=v);sub('ls',v=>LSB=v);sub('pf',v=>{PF=v;if(window.NET&&window.NET.pid())UID=window.NET.pid();const m=ME();if(m&&m.name&&m.name!==NAME){NAME=m.name;store('noggin-name2',NAME)}});
- }catch(e){clearTimeout(tm);BST='off';refresh()}})();
+ }catch(e){NETDONE=true;clearTimeout(tm);BST='off';refresh();checkOnboard()}})();
 let ONB='',ONBE='';
-let RQ=0;function refresh(){cancelAnimationFrame(RQ);RQ=requestAnimationFrame(()=>{const s=S.screen;if(s==='home')home(true);else if(s==='board')board(true);else if(s==='friends')friendsView(true);else if(s==='results')myRank();else if(s==='lsres')lsMine()})}
+const signedUp=()=>window.NET?!!UID:!!NAME;
+let PENDPIC='';
+async function toPic(file){const url=URL.createObjectURL(file);try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});const w=img.naturalWidth,h=img.naturalHeight,sz=Math.min(w,h),c=document.createElement('canvas');c.width=c.height=160;const g=c.getContext('2d');g.drawImage(img,(w-sz)/2,(h-sz)/2,sz,sz,0,0,160,160);return c.toDataURL('image/jpeg',.82)}finally{URL.revokeObjectURL(url)}}
+async function savePic(v){if(window.NET&&UID&&DBX){await DBX.collection('pf').doc(UID).update({pic:v})}else{LPIC=v;store('noggin-pic',v)}}
+const PREV=(src,name)=>`<span class="av" style="--h:${hue(name||'?')}">${src&&PICRE.test(src)?`<img src="${src}" alt="">`:esc(ini(name||'?'))}</span>`;
+function closeModal(){const m=$('modal');m.hidden=true;m.innerHTML='';m.onclick=null}
+function checkOnboard(){if(!NETDONE||signedUp()||!$('modal').hidden)return;openOnboard()}
+function openOnboard(){const m=$('modal');m.hidden=false;m.onclick=null;const key=ONB==='key';
+ m.innerHTML=`<div class="mbox">${key?`<h2 id="mtitle">Welcome back</h2><p class="sub" style="margin-top:4px">Enter the device key from your other phone. You’ll find it on the profile screen there.</p>
+  <form id="kf" class="mini2"><input id="kfi" maxlength="16" placeholder="XXXX-XXXX-XXXX" aria-label="Device key" style="text-transform:uppercase" autocomplete="off"><button class="btn sm">Link</button></form>`
+ :`<h2 id="mtitle">Welcome to Noggin</h2><p class="sub" style="margin-top:4px">Pick a player name for the leaderboards. You can change it, and add a photo, any time from the button at the top right.</p>
+  <div class="picrow">${PREV(PENDPIC,$('onm')?$('onm').value:'')}<div class="picbtns"><label class="btn ghost sm" for="opic">${PENDPIC?'Change photo':'Add a photo'}</label><input type="file" accept="image/*" id="opic" class="filein"><span class="lbl">Optional</span></div></div>
+  <form id="of" class="mini2"><input id="onm" maxlength="16" placeholder="Player name" aria-label="Player name" autocomplete="nickname" value="${esc(NAME)}"><button class="btn sm" id="ob">Start playing</button></form>`}
+  <p class="err" id="oe" ${ONBE?'':'hidden'}>${esc(ONBE)}</p>
+  ${window.NET?`<button class="link" id="ok">${key?'Back to picking a name':'Played on another phone? Use your device key'}</button>`:''}</div>`;
+ if($('ok'))$('ok').onclick=()=>{ONB=key?'':'key';ONBE='';openOnboard()};
+ if($('opic'))$('opic').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{PENDPIC=await toPic(f)}catch(err){ONBE='That photo couldn’t be read. Try another.'}const v=$('onm').value;openOnboard();$('onm').value=v};
+ if($('of')){const f=$('of');setTimeout(()=>fine()&&$('onm').focus(),50);f.onsubmit=async e=>{e.preventDefault();const v=$('onm').value.trim().replace(/\s+/g,' ').slice(0,16);if(!v)return $('onm').focus();$('ob').disabled=true;
+  try{await ensureProfile(v);NAME=v;store('noggin-name2',v);ONBE=''}catch(err){if(!window.NET){NAME=v;store('noggin-name2',v);ONBE=''}else{ONBE=errText(err);return openOnboard()}}
+  if(PENDPIC){try{await savePic(PENDPIC)}catch(err){}PENDPIC=''}closeModal();if(S.screen==='home')home(true);else meta()}}
+ if($('kf'))$('kf').onsubmit=async e=>{e.preventDefault();try{await window.NET.recover($('kfi').value);UID=window.NET.pid();ONB='';ONBE='';const me=ME();if(me){NAME=me.name;store('noggin-name2',NAME)}closeModal();refresh();if(S.screen==='home')home(true);else meta()}catch(err){ONBE=errText(err);openOnboard()}}}
+let PMSG='';
+function openProfile(){const m=$('modal'),me=ME(),key=window.NET&&window.NET.key();m.hidden=false;
+ m.innerHTML=`<div class="mbox"><button class="mx" id="mx" aria-label="Close">×</button><h2 id="mtitle">Your profile</h2>
+ <div class="picrow">${avatar(NAME||'?',UID||'local')}<div class="picbtns"><label class="btn ghost sm" for="ppic">${picOf(UID||'local')?'Change photo':'Add a photo'}</label><input type="file" accept="image/*" id="ppic" class="filein">${picOf(UID||'local')?'<button class="link" id="prm">Remove photo</button>':''}</div></div>
+ <label class="lbl" for="pnm2">Player name</label><form id="pf2" class="mini2"><input id="pnm2" maxlength="16" value="${esc(NAME)}" autocomplete="nickname"><button class="btn sm">Save</button></form>
+ <p class="${PMSG.startsWith('Saved')?'note':'err'}" ${PMSG?'':'hidden'}>${esc(PMSG)}</p>
+ ${me?`<div class="sect"><span class="lbl">Friend code</span><div class="code" style="font-size:28px;margin:4px 0 8px">${esc(me.code)}</div><div class="mini2"><button class="btn sm" id="pci">Copy invite</button><button class="btn ghost sm" id="pfr">Friends</button></div><div id="pcio"></div></div>`:''}
+ ${key?`<div class="sect"><span class="lbl">Device key</span><p style="margin:4px 0 0"><b style="letter-spacing:.06em">${esc(key)}</b></p><p class="note" style="margin-top:6px">Your profile is saved to your account and linked to this phone. To play as you on another phone or browser, choose “Use your device key” there and enter this. Keep it private.</p></div>`:`<p class="note">Your profile is saved on this device.</p>`}</div>`;
+ const close=()=>{PMSG='';closeModal();if(S.screen==='home')home(true);else if(S.screen==='friends')friendsView(true);else meta(S.screen==='home'?undefined:undefined)};
+ $('mx').onclick=close;m.onclick=e=>{if(e.target===m)close()};
+ $('ppic').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await savePic(await toPic(f));PMSG='Saved your photo.'}catch(err){PMSG=err&&err.code?errText(err):'That photo couldn’t be read. Try another.'}openProfile()};
+ if($('prm'))$('prm').onclick=async()=>{try{await savePic('');PMSG='Saved. Photo removed.'}catch(err){PMSG=errText(err)}openProfile()};
+ $('pf2').onsubmit=async e=>{e.preventDefault();const v=$('pnm2').value.trim().replace(/\s+/g,' ').slice(0,16);if(!v||v===NAME)return;try{await ensureProfile(v);NAME=v;store('noggin-name2',v);PMSG='Saved your new name.'}catch(err){if(!window.NET){NAME=v;store('noggin-name2',v);PMSG='Saved your new name.'}else PMSG=errText(err)}openProfile()};
+ if($('pci'))$('pci').onclick=()=>copy(`Play Noggin with me: Daily Trivia, Long Shot and Hot Seat. Open the Noggin link I sent and add my friend code ${me.code}.`,$('pci'),$('pcio'));
+ if($('pfr'))$('pfr').onclick=()=>{PMSG='';closeModal();friendsView()}}
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('modal').hidden&&$('mx'))$('mx').click()});
+let RQ=0;function refresh(){cancelAnimationFrame(RQ);RQ=requestAnimationFrame(()=>{const s=S.screen;if(document.body.classList.contains('pg')&&$('modal').hidden)meta();if(s==='home')home(true);else if(s==='board')board(true);else if(s==='friends')friendsView(true);else if(s==='results')myRank();else if(s==='lsres')lsMine()})}
 async function writeDay(col,n,entry){if(!DBX||!UID)throw{code:'nodb'};const ref=DBX.collection(col).doc(UID),snap=await ref.get();
  if(snap.exists){const d=snap.data();if(d.days&&d.days[n])return false;await ref.update({name:NAME,days:{[n]:entry}})}else await ref.set({name:NAME,days:{[n]:entry}});return true}
 const CODEA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -527,8 +586,8 @@ function page(cat){mode('page');cur='';theme(cat);$('prog').innerHTML='';tags();
 function bumper(top,big){const b=$('bump');b.innerHTML=`<small>${esc(top)}</small><b>${esc(big)}</b>`;b.classList.remove('go');void b.offsetWidth;if(!RM)b.classList.add('go')}
 function fly(txt){if(RM)return;const f=document.createElement('div');f.className='fly';f.textContent=txt;$('stage').appendChild(f);setTimeout(()=>f.remove(),1300)}
 function tags(a,b){$('tag').hidden=!a;$('tag2').hidden=!b;if(a)$('tag').innerHTML=`<i></i>${esc(a)}`;if(b)$('tag2').textContent=b}
-function meta(extra){const m=$('meta');if(extra!==undefined){m.innerHTML=extra;return}
- m.innerHTML=(NAME?`<button class="chip" id="mechip">${esc(NAME)}</button>`:'')+`<span class="chip">Day ${TODAY}</span>`;$('mechip')&&($('mechip').onclick=()=>friendsView())}
+const ubtn=solo=>`<button class="ubtn ${solo?'solo':''}" id="ubtn" aria-label="Your profile">${avatar(NAME||'?',UID||'local')}${solo?'':`<span>${esc(NAME||'Profile')}</span>`}</button>`;
+function meta(extra){const m=$('meta');if(extra!==undefined){m.innerHTML=extra+ubtn(1)}else m.innerHTML=`<span class="chip">Day ${TODAY}</span>`+ubtn();$('ubtn').onclick=()=>signedUp()?openProfile():openOnboard()}
 const stop=()=>{clearInterval(T);T=0};
 const art=k=>`<svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${SC[k](++uid)}</svg>`;
 function copy(text,btn,out){const fb=()=>{out.innerHTML=`<textarea rows="3" readonly>${esc(text)}</textarea>`;out.firstChild.select()};try{navigator.clipboard.writeText(text).then(()=>{btn.textContent='Copied'},fb)}catch(e){fb()}}
@@ -539,7 +598,7 @@ function home(live){stop();if(!live){leaveParty();S={screen:'home'};page('home')
  const prev=(rs,label,game)=>`<div class="panel"><div class="hd"><h2>${label}</h2><button class="link" data-go="${game}">Full board</button></div>${BST!=='ok'?`<p class="lbl">${BST==='loading'?'Loading…':'Can’t reach the leaderboard right now.'}</p>`:rs.length?rs.slice(0,3).map((r,i)=>`<div class="prow"><span class="rk">${i+1}</span><span>${esc(r.name)}${r.id===UID?'<span class="you">You</span>':''}<small>${game==='trivia'?ft(r.time):'7 picks'}</small></span><b>${nf(r.score)}</b></div>`).join(''):`<p class="lbl">No scores yet today. Be the first.</p>`}</div>`;
  const ftoday=fr.map(id=>({id,n:nameOf(id),s:statsOf(id)})).slice(0,4);
  $('card').innerHTML=`<div class="hero ${live?'':'in'}"><div><p class="kick">${esc(dateOf(TODAY))} · Day ${TODAY}</p><h1>Tonight on Noggin</h1></div>
- <div class="me">${NAME&&(UID||!window.NET)?`${avatar(NAME,UID||NAME)}<div><b>${esc(NAME)}</b><br><span class="lbl">${st?`Trivia streak ${st.ts} · Long Shot streak ${st.ls}`:'Playing on this device'}</span></div>`:ONB==='key'?`<div><form id="kf" class="mini2"><input id="kfi" maxlength="16" placeholder="XXXX-XXXX-XXXX" aria-label="Device key" style="text-transform:uppercase"><button class="btn sm">Link this device</button></form><p class="err" id="nfe" ${ONBE?'':'hidden'}>${esc(ONBE)}</p><button class="link" id="kb">Back to picking a name</button></div>`:`<div><form id="nf" class="mini2"><input id="nmi" maxlength="16" placeholder="Pick a player name" aria-label="Player name" value="${esc(NAME)}"><button class="btn sm">Start playing</button></form><p class="err" id="nfe" ${ONBE?'':'hidden'}>${esc(ONBE)}</p>${window.NET?'<button class="link" id="kb">Played on another phone? Use your device key</button>':''}</div>`}</div></div>
+</div>
  <div class="shows">
   <article class="show ${live?'':'in'}" style="--sc:${CATS.home.ac}"><div class="art">${art('football')}<span class="badge">Daily</span></div><div class="bd"><h3>Daily <span>Trivia</span></h3><p>Nine questions, one per category. The clock counts up and fast right answers earn a speed bonus.</p>
    <div class="st">${t?`Played · <b>${nf(t.score)} pts</b> · ${ft(t.time)}${rk(tr)}`:`Not played yet${st&&st.ts?` · streak <b>${st.ts}</b> on the line`:''}`}</div>
@@ -557,10 +616,7 @@ function home(live){stop();if(!live){leaveParty();S={screen:'home'};page('home')
  <p class="note">The questions, answer lists and odds are a sample set to show the format.</p>`;
  $('tv').onclick=()=>t?review(TODAY):play('daily',TODAY);$('tvp').onclick=()=>play('practice');$('ls').onclick=()=>l?lsResults(TODAY):lsPlay(TODAY);$('hs').onclick=()=>partyHome();$('fv').onclick=()=>friendsView();
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{VIEW.board=b.dataset.go;board()});
- if($('nf'))$('nf').onsubmit=async e=>{e.preventDefault();const v=$('nmi').value.trim().replace(/\s+/g,' ').slice(0,16);if(!v)return;$('nf').querySelector('button').disabled=true;
-  try{await ensureProfile(v);NAME=v;store('noggin-name2',v);ONBE=''}catch(err){ONBE=errText(err);if(!window.NET){NAME=v;store('noggin-name2',v);ONBE=''}}home(true)};
- if($('kb'))$('kb').onclick=()=>{ONB=ONB==='key'?'':'key';ONBE='';home(true)};
- if($('kf'))$('kf').onsubmit=async e=>{e.preventDefault();try{await window.NET.recover($('kfi').value);UID=window.NET.pid();ONB='';ONBE='';const m=ME();if(m){NAME=m.name;store('noggin-name2',NAME)}refresh()}catch(err){ONBE=errText(err)}home(true)}}
+ checkOnboard()}
 /* ---------- daily trivia ---------- */
 const POOL=D.TRIVIA.flat();
 function play(mode,day){const list=mode==='daily'?setFor(day):[...POOL].sort(()=>Math.random()-.5).slice(0,9);S={screen:'play',mode,day,list,i:0,res:[],score:0,time:0};mode2game();startQ()}
@@ -724,13 +780,13 @@ function partyHome(live){stop();if(!live){leaveParty();S={screen:'party'};page('
 /* host engine */
 function newCode(){return R(4,()=>'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random()*24)])}
 async function hostParty(){const code=newCode();
- P={role:'host',code,R:null,me:'h',typing:{},H:{code,stg:'lobby',set:{lives:3,fuse:'normal',pass:8,cats:'mix'},pl:[{id:'h',name:NAME,lives:3}],turn:null,pi:0,used:[],log:[],rd:0,win:null,pop:null},fuse:null,botAt:0,beat:0};
+ P={role:'host',code,R:null,me:'h',typing:{},H:{code,stg:'lobby',set:{lives:3,fuse:'normal',pass:8,cats:'mix'},pl:[{id:'h',name:NAME,lives:3,pid:UID||''}],turn:null,pi:0,used:[],log:[],rd:0,win:null,pop:null},fuse:null,botAt:0,beat:0};
  S={screen:'plobby'};partyView();
- if(ROOM){try{const Rm=await ROOM.join('hs-'+code.toLowerCase());if(!P||P.code!==code){Rm.leave();return}P.R=Rm;Rm.presence({name:NAME,host:true});
+ if(ROOM){try{const Rm=await ROOM.join('hs-'+code.toLowerCase());if(!P||P.code!==code){Rm.leave();return}P.R=Rm;Rm.presence({name:NAME,host:true,pid:UID||''});
   Rm.onPeers(ch=>{if(!P||P.role!=='host')return;const H=P.H;P.typing={};for(const p of ch.peers){if(p.presence&&typeof p.presence.typing==='string')P.typing[p.presence.host?'h':p.peer]=p.presence.typing.slice(0,40)}
    for(const p of ch.joined){if(p.isMe||!p.presence||!p.presence.name)continue}
    const live=new Set(ch.peers.filter(p=>!p.isMe&&p.presence&&p.presence.name).map(p=>p.peer));
-   for(const p of ch.peers){if(p.isMe||!p.presence||!p.presence.name)continue;const ex=H.pl.find(x=>x.id===p.peer);if(ex){ex.name=String(p.presence.name).slice(0,16);ex.on=true}else if(H.stg==='lobby'&&H.pl.length<10)H.pl.push({id:p.peer,name:String(p.presence.name).slice(0,16),lives:H.set.lives,on:true})}
+   for(const p of ch.peers){if(p.isMe||!p.presence||!p.presence.name)continue;const ex=H.pl.find(x=>x.id===p.peer);if(ex){ex.name=String(p.presence.name).slice(0,16);ex.on=true}else if(H.stg==='lobby'&&H.pl.length<10)H.pl.push({id:p.peer,name:String(p.presence.name).slice(0,16),lives:H.set.lives,on:true,pid:typeof p.presence.pid==='string'?p.presence.pid.slice(0,40):''})}
    for(const x of H.pl){if(x.id!=='h'&&!x.bot&&!live.has(x.id))x.on=false}
    if(H.stg==='lobby')H.pl=H.pl.filter(x=>x.id==='h'||x.bot||x.on);
    pEmit();partyView()},()=>{});
@@ -765,7 +821,7 @@ function botMove(b){const H=P.H,L=list(H.pi),free=L.n.map((x,i)=>i).filter(i=>!H
  else P.botAt=performance.now()+2500+Math.random()*3000}
 /* guest */
 async function joinParty(code){if(!ROOM)return;S={screen:'plobby'};P={role:'guest',code,R:null,me:null,V:null,vt:0,host:null,typing:{}};partyView();
- try{const Rm=await ROOM.join('hs-'+code.toLowerCase());if(!P||P.code!==code){Rm.leave();return}P.R=Rm;Rm.presence({name:NAME});
+ try{const Rm=await ROOM.join('hs-'+code.toLowerCase());if(!P||P.code!==code){Rm.leave();return}P.R=Rm;Rm.presence({name:NAME,pid:UID||''});
   Rm.on('st',m=>{if(!P||P.role!=='guest'||m.isMe)return;if(P.host&&m.peer!==P.host)return;const hp=Rm.peers().find(p=>p.peer===m.peer);if(!P.host&&!(hp&&hp.presence&&hp.presence.host))return;P.host=m.peer;const prev=P.V;P.V=m.data;P.vt=performance.now();
    if(!P.me){const me=Rm.peers().find(p=>p.isMe&&p.sameTab);P.me=me?me.peer:null}
    if(P.V&&P.V.stg!=='lobby'&&S.screen==='plobby')S.screen='pgame';if(P.V&&P.V.stg==='lobby')S.screen='plobby';
@@ -790,12 +846,12 @@ function partyView(){const V=PV();mode2game();mode('party');theme('party');$('pr
  const me=myId(),host=P.role==='host',pl=V.pl||[],nameBy=id=>(pl.find(p=>p.id===id)||{}).name||'Someone';
  tags('Hot Seat',V.stg==='lobby'?'Room '+P.code:`Round ${V.rd}`);meta(`<span class="chip">Room <b>${esc(P.code)}</b></span><button class="chip" id="sndc">Sound ${SOUND?'on':'off'}</button>`);$('sndc').onclick=()=>{SOUND=!SOUND;store('noggin-snd',SOUND);audio();partyView()};
  const ar=$('arena');
- const akey=JSON.stringify([pl.map(p=>[p.id,p.name,p.lives,p.bot]),V.turn,V.stg,V.set.lives,me]);if(ar.dataset.k!==akey){ar.dataset.k=akey;ar.innerHTML=pl.map((p,i)=>{const s=seatPos(i,pl.length);return `<div class="seat ${p.id===V.turn&&V.stg==='play'?'cur':''} ${p.lives<=0&&V.stg!=='lobby'?'out':''}" style="left:${s.x.toFixed(1)}%;top:${s.y.toFixed(1)}%"><div class="bub" data-ty="${esc(p.id)}"></div>${avatar(p.name,p.id)}<b>${esc(p.name)}${p.id===me?' (you)':''}</b><span class="lv">${R(V.set.lives,k=>ROLL(k>=p.lives))}</span></div>`}).join('')+`<div class="cush" id="cush"><div class="wob">${cushion()}</div></div>`}
+ const akey=JSON.stringify([pl.map(p=>[p.id,p.name,p.lives,p.bot]),V.turn,V.stg,V.set.lives,me]);if(ar.dataset.k!==akey){ar.dataset.k=akey;ar.innerHTML=pl.map((p,i)=>{const s=seatPos(i,pl.length);return `<div class="seat ${p.id===V.turn&&V.stg==='play'?'cur':''} ${p.lives<=0&&V.stg!=='lobby'?'out':''}" style="left:${s.x.toFixed(1)}%;top:${s.y.toFixed(1)}%"><div class="bub" data-ty="${esc(p.id)}"></div>${avatar(p.name,p.pid||p.id)}<b>${esc(p.name)}${p.id===me?' (you)':''}</b><span class="lv">${R(V.set.lives,k=>ROLL(k>=p.lives))}</span></div>`}).join('')+`<div class="cush" id="cush"><div class="wob">${cushion()}</div></div>`}
  cushTick();
  const card=$('card');
  if(V.stg==='lobby'){const opt=(k,v,lbl)=>`<option value="${v}" ${String(V.set[k])===String(v)?'selected':''}>${lbl}</option>`;
   card.innerHTML=`<p class="kick">Waiting room</p><h3>Room code <span style="color:var(--ac);letter-spacing:.1em">${esc(P.code)}</span></h3><p class="sub" style="margin-top:6px">${host?(P.R?'Friends join from Hot Seat with this code. Add bots to fill seats.':'Live rooms aren’t available here, so add bots to play.'):'The host will start the game.'}</p>
-  <div class="plist">${pl.map(p=>`<div>${avatar(p.name,p.id)}<span>${esc(p.name)}${p.id==='h'?' · host':''}${p.bot?' · bot':''}${p.id===me?' (you)':''}</span>${host&&p.bot?`<button class="btn ghost sm" data-kb="${esc(p.id)}">Remove</button>`:''}</div>`).join('')}</div>
+  <div class="plist">${pl.map(p=>`<div>${avatar(p.name,p.pid||p.id)}<span>${esc(p.name)}${p.id==='h'?' · host':''}${p.bot?' · bot':''}${p.id===me?' (you)':''}</span>${host&&p.bot?`<button class="btn ghost sm" data-kb="${esc(p.id)}">Remove</button>`:''}</div>`).join('')}</div>
   ${host?`<div class="sets"><label>Rolls (lives)<select id="s-lives">${[1,2,3,4,5].map(v=>opt('lives',v,v+(v===1?' roll':' rolls'))).join('')}</select></label><label>Fuse<select id="s-fuse">${opt('fuse','short','Short · 5 to 15 s')}${opt('fuse','normal','Normal · 10 to 30 s')}${opt('fuse','long','Long · 20 to 40 s')}</select></label><label>Seconds after a pass<select id="s-pass">${[5,8,12].map(v=>opt('pass',v,'At least '+v+' s')).join('')}</select></label><label>Categories<select id="s-cats">${opt('cats','mix','Everything')}${opt('cats','sports','Sports & cars')}${opt('cats','geo','Geography')}${opt('cats','pop','Food & pop culture')}${opt('cats','sci','Science & body')}${opt('cats','hist','History & local')}</select></label></div>
    <div class="acts"><button class="btn ghost" id="addb" ${pl.length>=10?'disabled':''}>Add a bot</button><button class="btn" id="go" ${pl.length<2?'disabled':''}>Start game</button></div>`:
    `<p class="lbl">${V.set.lives} rolls each · ${V.set.fuse} fuse · ${esc({mix:'Everything',sports:'Sports & cars',geo:'Geography',pop:'Food & pop culture',sci:'Science & body',hist:'History & local'}[V.set.cats]||'')}</p>`}
