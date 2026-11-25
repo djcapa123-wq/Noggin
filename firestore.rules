@@ -1,0 +1,80 @@
+rules_version = '2';
+// Noggin security rules. Paste into Firebase console > Firestore Database > Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function ownerDoc(pid) { return /databases/$(database)/documents/owners/$(pid); }
+    // This device (anonymous sign-in) is linked to player `pid`.
+    function owns(pid) {
+      return signedIn() && exists(ownerDoc(pid)) && request.auth.uid in get(ownerDoc(pid)).data.devices;
+    }
+    function ownsAfter(pid) {
+      return signedIn() && existsAfter(ownerDoc(pid)) && request.auth.uid in getAfter(ownerDoc(pid)).data.devices;
+    }
+    function goodName(n) { return n is string && n.matches('^[A-Za-z0-9][A-Za-z0-9 _.-]{1,15}$'); }
+    function nameDoc(n) { return /databases/$(database)/documents/names/$(n.lower()); }
+
+    // Which devices belong to a player.
+    match /owners/{pid} {
+      allow read: if signedIn() && request.auth.uid in resource.data.devices;
+      allow create: if signedIn() && pid == request.auth.uid
+        && request.resource.data.devices == [request.auth.uid];
+      // Adding a new device with the player's device key.
+      allow update: if signedIn()
+        && request.resource.data.devices == resource.data.devices.concat([request.auth.uid])
+        && getAfter(/databases/$(database)/documents/devmap/$(request.auth.uid)).data.pid == pid
+        && get(/databases/$(database)/documents/keys/$(getAfter(/databases/$(database)/documents/devmap/$(request.auth.uid)).data.key)).data.pid == pid;
+    }
+
+    // Device -> player link (private to the device).
+    match /devmap/{uid} {
+      allow read: if signedIn() && uid == request.auth.uid;
+      allow create: if signedIn() && uid == request.auth.uid && (
+        (request.resource.data.pid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/keys/$(request.resource.data.key)).data.pid == request.auth.uid)
+        || get(/databases/$(database)/documents/keys/$(request.resource.data.key)).data.pid == request.resource.data.pid);
+    }
+
+    // Device keys: readable only by exact key, never listed.
+    match /keys/{k} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.pid == request.auth.uid && ownsAfter(request.auth.uid);
+    }
+
+    // Usernames are unique.
+    match /names/{n} {
+      allow read: if true;
+      allow create: if signedIn() && ownsAfter(request.resource.data.pid);
+      allow delete: if owns(resource.data.pid);
+    }
+
+    // Public profile: name, friend code, friends list.
+    match /pf/{pid} {
+      allow read: if true;
+      allow create: if ownsAfter(pid) && goodName(request.resource.data.name)
+        && getAfter(nameDoc(request.resource.data.name)).data.pid == pid;
+      allow update: if owns(pid) && goodName(request.resource.data.name)
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.friends is list && request.resource.data.friends.size() <= 300
+        && (request.resource.data.name == resource.data.name
+            || getAfter(nameDoc(request.resource.data.name)).data.pid == pid);
+    }
+
+    // Daily Trivia and Long Shot scores, one doc per player.
+    match /lb/{pid} { allow read: if true; allow create, update: if owns(pid); }
+    match /ls/{pid} { allow read: if true; allow create, update: if owns(pid); }
+
+    // Hot Seat: open-room list and live rooms.
+    match /lobby/{peer} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.by == request.auth.uid;
+      allow delete: if signedIn() && resource.data.by == request.auth.uid;
+    }
+    match /rooms/{room}/{sub}/{id} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.by == request.auth.uid;
+      allow delete: if signedIn() && resource.data.by == request.auth.uid;
+    }
+  }
+}
